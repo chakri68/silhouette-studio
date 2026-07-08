@@ -32,6 +32,8 @@ export function initToolbar(container: HTMLElement): void {
       <button class="tool" id="undo" title="Undo — Ctrl/Cmd+Z">Undo</button>
       <button class="tool" id="redo" title="Redo — Ctrl/Cmd+Shift+Z">Redo</button>
     </div>
+    <div class="sep"></div>
+    <button class="tool" id="preview">Preview</button>
   `;
 
   const addBtn = container.querySelector<HTMLButtonElement>("#tool-add")!;

@@ -6,6 +6,7 @@ import { initHistory, resetHistory } from "./engine/history";
 import { mediapipeSegmenter, prewarm } from "./segmentation";
 import { initDropzone } from "./ui/dropzone";
 import { initToolbar } from "./ui/toolbar";
+import { initPreviewModal } from "./ui/previewModal";
 
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   <header class="topbar">
@@ -25,7 +26,12 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
           <div class="dz-sub">or click to browse — png · jpg · webp · gif · bmp</div>
         </div>
       </div>
-      <div class="busy hidden" id="busy"><span>AUTO-SELECTING…</span></div>
+      <div class="busy hidden" id="busy">
+        <div class="busy-box">
+          <div class="busy-label">AUTO-SELECTING</div>
+          <div class="busy-bar"><span></span></div>
+        </div>
+      </div>
     </div>
     <div class="toolbar hidden" id="toolbar"></div>
   </main>
@@ -46,6 +52,8 @@ initViewport(canvas); // registers pointerdown before the brush, so pan wins
 initBrush(canvas);
 initHistory();
 initToolbar(toolbar);
+const preview = initPreviewModal();
+toolbar.querySelector<HTMLButtonElement>("#preview")!.addEventListener("click", () => preview.open());
 prewarm(); // start fetching the segmentation model in the background
 
 initDropzone({ dropzone, fileInput, openButton }, (bmp) => {

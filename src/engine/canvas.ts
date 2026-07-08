@@ -21,6 +21,9 @@ const maskCanvas = document.createElement("canvas");
 const mctx = maskCanvas.getContext("2d", { willReadFrequently: true })!;
 const overlayCanvas = document.createElement("canvas");
 const octx = overlayCanvas.getContext("2d")!;
+// Reused scratch canvas for the composited cutout (preview + PNG/SVG export).
+const cutoutCanvas = document.createElement("canvas");
+const cctx = cutoutCanvas.getContext("2d")!;
 
 let displayCanvas: HTMLCanvasElement;
 let dctx: CanvasRenderingContext2D;
@@ -127,6 +130,34 @@ export function seedMask(alpha: Uint8ClampedArray, w: number, h: number): void {
     mctx.drawImage(tmp, 0, 0, state.W, state.H);
   }
   markMaskDirty();
+}
+
+/** The mask canvas, for tracing the silhouette (phase 6). */
+export function getMaskCanvas(): HTMLCanvasElement {
+  return maskCanvas;
+}
+
+/** Composite the final cutout: image kept only where selected (4.6). */
+export function buildCutout(): HTMLCanvasElement {
+  cutoutCanvas.width = state.W;
+  cutoutCanvas.height = state.H;
+  cctx.globalCompositeOperation = "source-over";
+  cctx.clearRect(0, 0, state.W, state.H);
+  cctx.drawImage(imageCanvas, 0, 0);
+  cctx.globalCompositeOperation = "destination-in";
+  cctx.drawImage(maskCanvas, 0, 0);
+  cctx.globalCompositeOperation = "source-over";
+  return cutoutCanvas;
+}
+
+/** True when no pixel is selected — guard exports (§11). */
+export function isMaskEmpty(): boolean {
+  if (!state.image) return true;
+  const { data } = mctx.getImageData(0, 0, state.W, state.H);
+  for (let j = 3; j < data.length; j += 4) {
+    if (data[j] !== 0) return false;
+  }
+  return true;
 }
 
 /** Center the image in the viewport at the largest scale that leaves a margin. */
