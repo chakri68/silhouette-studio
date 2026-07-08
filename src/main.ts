@@ -7,6 +7,7 @@ import { mediapipeSegmenter, prewarm } from "./segmentation";
 import { initDropzone } from "./ui/dropzone";
 import { initToolbar } from "./ui/toolbar";
 import { initPreviewModal } from "./ui/previewModal";
+import { initSilhouettePanel } from "./ui/silhouettePanel";
 
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   <header class="topbar">
@@ -52,7 +53,8 @@ initViewport(canvas); // registers pointerdown before the brush, so pan wins
 initBrush(canvas);
 initHistory();
 initToolbar(toolbar);
-const preview = initPreviewModal();
+const silhouette = initSilhouettePanel();
+const preview = initPreviewModal(() => silhouette.open());
 toolbar.querySelector<HTMLButtonElement>("#preview")!.addEventListener("click", () => preview.open());
 prewarm(); // start fetching the segmentation model in the background
 

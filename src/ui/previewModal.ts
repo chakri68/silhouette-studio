@@ -11,7 +11,7 @@ export interface PreviewModal {
   open: () => void;
 }
 
-export function initPreviewModal(): PreviewModal {
+export function initPreviewModal(onSilhouette: () => void): PreviewModal {
   const root = document.createElement("div");
   root.className = "modal-backdrop hidden";
   root.innerHTML = `
@@ -24,6 +24,7 @@ export function initPreviewModal(): PreviewModal {
       <div class="modal-actions">
         <button class="btn primary" id="export-png">PNG</button>
         <button class="btn" id="export-svg">SVG</button>
+        <button class="btn" id="export-silhouette">Silhouette</button>
         <span class="modal-spacer"></span>
         <button class="btn" id="modal-close">Close</button>
       </div>
@@ -35,6 +36,7 @@ export function initPreviewModal(): PreviewModal {
   const empty = root.querySelector<HTMLElement>(".preview-empty")!;
   const pngBtn = root.querySelector<HTMLButtonElement>("#export-png")!;
   const svgBtn = root.querySelector<HTMLButtonElement>("#export-svg")!;
+  const silBtn = root.querySelector<HTMLButtonElement>("#export-silhouette")!;
   const closeBtn = root.querySelector<HTMLButtonElement>("#modal-close")!;
 
   const isOpen = (): boolean => !root.classList.contains("hidden");
@@ -46,12 +48,17 @@ export function initPreviewModal(): PreviewModal {
     img.classList.toggle("hidden", emptyMask);
     pngBtn.disabled = emptyMask;
     svgBtn.disabled = emptyMask;
+    silBtn.disabled = emptyMask;
     if (!emptyMask) img.src = buildCutout().toDataURL("image/png");
     root.classList.remove("hidden");
   };
 
   pngBtn.addEventListener("click", () => exportPNG());
   svgBtn.addEventListener("click", () => exportSVG());
+  silBtn.addEventListener("click", () => {
+    close(); // hand off to the silhouette panel
+    onSilhouette();
+  });
   closeBtn.addEventListener("click", close);
   root.addEventListener("mousedown", (e) => {
     if (e.target === root) close(); // click on backdrop, not the panel

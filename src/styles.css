@@ -449,6 +449,77 @@ body {
   flex: 1;
 }
 
+/* ── Silhouette panel ───────────────────────────────────────────────── */
+
+.sil-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.sil-preview svg {
+  max-width: 100%;
+  max-height: 58vh;
+  height: auto;
+}
+
+.sil-preview.hidden {
+  display: none;
+}
+
+.sil-status {
+  font-family: var(--font-pixel);
+  font-size: 12px;
+  color: var(--accent);
+  text-shadow: 0 0 12px rgba(255, 176, 0, 0.5);
+  padding: 40px;
+}
+
+.sil-status.hidden {
+  display: none;
+}
+
+.sil-controls {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.sil-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.sil-controls input[type="color"] {
+  width: 34px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--panel-2);
+  cursor: pointer;
+}
+
+.sil-controls input[type="range"] {
+  accent-color: var(--accent);
+  width: 120px;
+}
+
+.sil-controls .sil-thickness .readout {
+  min-width: 20px;
+  text-align: right;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 @keyframes modal-fade {
   from {
     opacity: 0;

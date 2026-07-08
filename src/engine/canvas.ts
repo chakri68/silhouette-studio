@@ -32,6 +32,7 @@ let zoomReadout: HTMLElement | null = null;
 let dpr = 1;
 let dirty = true; // display needs a redraw
 let maskDirty = false; // overlay needs recompute from mask
+let maskVersion = 0; // bumped on any mask change; lets the tracer skip re-tracing
 
 // Brush-cursor ring, tracked in CSS-pixel screen space.
 const cursor = { x: 0, y: 0, visible: false };
@@ -59,6 +60,12 @@ export function markDirty(): void {
 /** Mask pixels changed — recompute the overlay (once) next frame, then redraw. */
 export function markMaskDirty(): void {
   maskDirty = true;
+  maskVersion++;
+}
+
+/** Monotonic counter of mask changes — compare to know if a re-trace is needed. */
+export function getMaskVersion(): number {
+  return maskVersion;
 }
 
 /** The mask context, in image space. The brush paints directly into it. */
