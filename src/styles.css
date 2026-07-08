@@ -190,6 +190,47 @@ body {
   color: var(--danger);
 }
 
+/* ── Busy overlay (auto-segmentation) ───────────────────────────────── */
+
+.busy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 2;
+}
+
+.busy.hidden {
+  display: none;
+}
+
+.busy span {
+  font-family: var(--font-pixel);
+  font-size: 13px;
+  color: var(--accent);
+  text-shadow: 0 0 12px rgba(255, 176, 0, 0.5);
+  animation: busy-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes busy-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .busy span {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 /* ── Bottom toolbar ─────────────────────────────────────────────────── */
 
 .toolbar {

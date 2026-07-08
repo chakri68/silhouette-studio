@@ -101,6 +101,34 @@ export function setImage(bitmap: ImageBitmap): void {
   markDirty();
 }
 
+/**
+ * Write a foreground-alpha array into the mask (white where selected). Used to
+ * pre-fill the selection from auto-segmentation. Scales to W×H if the source
+ * mask came back at a different resolution.
+ */
+export function seedMask(alpha: Uint8ClampedArray, w: number, h: number): void {
+  const img = new ImageData(w, h);
+  const d = img.data;
+  for (let i = 0, j = 0; i < alpha.length; i++, j += 4) {
+    d[j] = 255;
+    d[j + 1] = 255;
+    d[j + 2] = 255;
+    d[j + 3] = alpha[i];
+  }
+
+  mctx.clearRect(0, 0, state.W, state.H);
+  if (w === state.W && h === state.H) {
+    mctx.putImageData(img, 0, 0);
+  } else {
+    const tmp = document.createElement("canvas");
+    tmp.width = w;
+    tmp.height = h;
+    tmp.getContext("2d")!.putImageData(img, 0, 0);
+    mctx.drawImage(tmp, 0, 0, state.W, state.H);
+  }
+  markMaskDirty();
+}
+
 /** Center the image in the viewport at the largest scale that leaves a margin. */
 export function fitView(): void {
   if (!state.image) return;

@@ -1,8 +1,9 @@
 import "./styles.css";
-import { initCanvas, setImage, fitView } from "./engine/canvas";
+import { initCanvas, setImage, seedMask, fitView } from "./engine/canvas";
 import { initViewport } from "./engine/viewport";
 import { initBrush } from "./engine/brush";
 import { initHistory, resetHistory } from "./engine/history";
+import { mediapipeSegmenter, prewarm } from "./segmentation";
 import { initDropzone } from "./ui/dropzone";
 import { initToolbar } from "./ui/toolbar";
 
@@ -24,6 +25,7 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
           <div class="dz-sub">or click to browse — png · jpg · webp · gif · bmp</div>
         </div>
       </div>
+      <div class="busy hidden" id="busy"><span>AUTO-SELECTING…</span></div>
     </div>
     <div class="toolbar hidden" id="toolbar"></div>
   </main>
@@ -37,19 +39,38 @@ const fileInput = document.querySelector<HTMLInputElement>("#file")!;
 const openButton = document.querySelector<HTMLElement>("#open")!;
 const fitButton = document.querySelector<HTMLButtonElement>("#fit")!;
 const toolbar = document.querySelector<HTMLElement>("#toolbar")!;
+const busy = document.querySelector<HTMLElement>("#busy")!;
 
 initCanvas(canvas);
 initViewport(canvas); // registers pointerdown before the brush, so pan wins
 initBrush(canvas);
 initHistory();
 initToolbar(toolbar);
+prewarm(); // start fetching the segmentation model in the background
 
 initDropzone({ dropzone, fileInput, openButton }, (bmp) => {
   setImage(bmp);
-  resetHistory(); // seed becomes the history floor
+  resetHistory();
   dropzone.classList.add("hidden");
   toolbar.classList.remove("hidden");
   fitButton.disabled = false;
+  void seed(bmp);
 });
 
 fitButton.addEventListener("click", () => fitView());
+
+/** Auto-segment and pre-fill the mask. The busy overlay blocks brushing until done. */
+async function seed(source: ImageBitmap): Promise<void> {
+  busy.classList.remove("hidden");
+  try {
+    const res = await mediapipeSegmenter.segment(source);
+    seedMask(res.alpha, res.width, res.height);
+    resetHistory(); // the seed is the history floor
+  } catch (err) {
+    // Model unavailable or subject unrecognized — leave the mask empty; the
+    // brush is the workhorse. Not fatal.
+    console.error("auto-segmentation failed:", err);
+  } finally {
+    busy.classList.add("hidden");
+  }
+}
