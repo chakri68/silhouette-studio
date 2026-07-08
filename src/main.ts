@@ -1,60 +1,55 @@
-import './style.css'
-import typescriptLogo from './assets/typescript.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import { setupCounter } from './counter.ts'
+import "./styles.css";
+import { initCanvas, setImage, fitView } from "./engine/canvas";
+import { initViewport } from "./engine/viewport";
+import { initBrush } from "./engine/brush";
+import { initHistory, resetHistory } from "./engine/history";
+import { initDropzone } from "./ui/dropzone";
+import { initToolbar } from "./ui/toolbar";
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${typescriptLogo}" class="framework" alt="TypeScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.ts</code> and save to test <code>HMR</code></p>
-  </div>
-  <button id="counter" type="button" class="counter"></button>
-</section>
+document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
+  <header class="topbar">
+    <h1>silhouette_studio</h1>
+    <div class="spacer"></div>
+    <span class="readout" id="zoom">—</span>
+    <button class="btn" id="fit" disabled>Fit</button>
+    <button class="btn" id="open">Open…</button>
+  </header>
 
-<div class="ticks"></div>
+  <main class="workspace">
+    <div class="screen">
+      <canvas id="display"></canvas>
+      <div class="dropzone" id="dropzone">
+        <div class="dz-inner">
+          <div class="dz-title">DROP AN IMAGE</div>
+          <div class="dz-sub">or click to browse — png · jpg · webp · gif · bmp</div>
+        </div>
+      </div>
+    </div>
+    <div class="toolbar hidden" id="toolbar"></div>
+  </main>
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://www.typescriptlang.org" target="_blank">
-          <img class="button-icon" src="${typescriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
-</section>
+  <input type="file" id="file" accept="image/*" hidden />
+`;
 
-<div class="ticks"></div>
-<section id="spacer"></section>
-`
+const canvas = document.querySelector<HTMLCanvasElement>("#display")!;
+const dropzone = document.querySelector<HTMLElement>("#dropzone")!;
+const fileInput = document.querySelector<HTMLInputElement>("#file")!;
+const openButton = document.querySelector<HTMLElement>("#open")!;
+const fitButton = document.querySelector<HTMLButtonElement>("#fit")!;
+const toolbar = document.querySelector<HTMLElement>("#toolbar")!;
 
-setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+initCanvas(canvas);
+initViewport(canvas); // registers pointerdown before the brush, so pan wins
+initBrush(canvas);
+initHistory();
+initToolbar(toolbar);
+
+initDropzone({ dropzone, fileInput, openButton }, (bmp) => {
+  setImage(bmp);
+  resetHistory(); // seed becomes the history floor
+  dropzone.classList.add("hidden");
+  toolbar.classList.remove("hidden");
+  fitButton.disabled = false;
+});
+
+fitButton.addEventListener("click", () => fitView());
