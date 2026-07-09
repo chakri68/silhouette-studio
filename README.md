@@ -68,6 +68,23 @@ npm run dev      # → localhost:5173
 npm run build    # → dist/
 ```
 
+## cutout from the command line
+
+there's a headless version too — same model, no browser. point it at an image,
+get a transparent PNG:
+
+```sh
+npm run cutout -- photo.jpg              # → photo-cutout.png, next to it
+npm run cutout -- photo.jpg -o out.png   # pick the output path
+npm run cutout -- a.jpg b.jpg c.jpg      # batch; each → *-cutout.png
+```
+
+it reuses the exact same RMBG-1.4 model the app does — just running on CPU via
+onnxruntime-node, with sharp for image i/o. both already ship with
+transformers.js, so there are no extra dependencies. the output path prints to
+stdout and progress to stderr, so it pipes cleanly. first run pulls the weights
+(~44MB, cached after) into node's own cache, separate from the browser's.
+
 ## keys
 
 | key                     | does               |
@@ -97,6 +114,8 @@ src/
   export/   png · svg · download
   segmentation.ts + .worker.ts   RMBG-1.4, off the main thread
   trace.ts  potrace wrapper
+scripts/
+  cutout.js   headless "image → transparent PNG" CLI (same model, on CPU)
 ```
 
 ---
