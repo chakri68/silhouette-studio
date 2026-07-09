@@ -4,8 +4,6 @@ drop an image, get a clean cutout. the machine takes the first pass, you fix the
 last 10% by hand with a brush, then export a PNG, an SVG, or a traced flat
 silhouette. everything runs on-device — your image never leaves the browser.
 
-**live → [silhouette-studio.chakri.me](https://silhouette-studio.chakri.me/)**
-
 ## why this exists
 
 i wanted to pull a subject out of a photo without opening photoshop, and without
