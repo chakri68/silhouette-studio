@@ -49,9 +49,13 @@ export function initBrush(canvas: HTMLCanvasElement): void {
   canvas.addEventListener("pointermove", (e) => {
     updateCursor(e);
     if (!state.isPainting || !last) return;
-    const p = toImage(e);
-    strokeSegment(last, p);
-    last = p;
+    // Paint through every coalesced sample so a fast drag stays smooth (§8).
+    const samples = e.getCoalescedEvents?.() ?? [e];
+    for (const s of samples.length ? samples : [e]) {
+      const p = toImage(s);
+      strokeSegment(last, p);
+      last = p;
+    }
   });
 
   const end = (e: PointerEvent): void => {
