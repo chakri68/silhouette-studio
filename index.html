@@ -2,9 +2,53 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>silhouette studio</title>
+
+    <!-- Primary meta -->
+    <title>silhouette_studio — browser image cutout &amp; silhouette tool</title>
+    <meta
+      name="description"
+      content="Extract a clean cutout or silhouette from any image, right in your browser. Auto-segment with MediaPipe, refine by hand with an add/erase brush, then export as PNG, SVG, or a traced flat silhouette. No upload — everything runs on-device."
+    />
+    <meta
+      name="keywords"
+      content="silhouette, image cutout, background removal, remove background, segmentation, MediaPipe, SVG trace, potrace, PNG export, in-browser"
+    />
+    <meta name="author" content="chakri68" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="canonical" href="https://silhouette-studio.chakri.me/" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="silhouette_studio" />
+    <meta property="og:title" content="silhouette_studio — browser image cutout &amp; silhouette tool" />
+    <meta
+      property="og:description"
+      content="Extract a clean cutout or silhouette from any image, right in your browser. Auto-segment, brush-refine, then export PNG / SVG / traced silhouette. Nothing leaves your device."
+    />
+    <meta property="og:url" content="https://silhouette-studio.chakri.me/" />
+    <meta property="og:image" content="https://silhouette-studio.chakri.me/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="silhouette_studio — extract a cutout from any image in your browser" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="silhouette_studio — browser image cutout &amp; silhouette tool" />
+    <meta
+      name="twitter:description"
+      content="Extract a clean cutout or silhouette from any image, right in your browser. Auto-segment, brush-refine, then export PNG / SVG / traced silhouette."
+    />
+    <meta name="twitter:image" content="https://silhouette-studio.chakri.me/og-image.png" />
+    <meta name="twitter:image:alt" content="silhouette_studio — extract a cutout from any image in your browser" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -15,6 +59,22 @@
       href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=block"
       rel="stylesheet"
     />
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "silhouette_studio",
+        "url": "https://silhouette-studio.chakri.me/",
+        "description": "Extract a clean cutout or silhouette from any image, right in your browser. Auto-segment with MediaPipe, refine by hand with an add/erase brush, then export as PNG, SVG, or a traced flat silhouette.",
+        "applicationCategory": "MultimediaApplication",
+        "operatingSystem": "Any (modern web browser)",
+        "browserRequirements": "Requires JavaScript and WebAssembly",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@type": "Person", "name": "chakri68" }
+      }
+    </script>
   </head>
   <body>
     <div id="app"></div>

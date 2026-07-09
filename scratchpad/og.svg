@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="glow" cx="72%" cy="42%" r="55%">
+      <stop offset="0%" stop-color="#241a06"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+    <filter id="amberGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="9" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- background -->
+  <rect width="1200" height="630" fill="#000000"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- scanlines -->
+  <g fill="#ffb000" opacity="0.03">
+    <rect y="0"   width="1200" height="1"/><rect y="4"  width="1200" height="1"/>
+    <rect y="8"   width="1200" height="1"/><rect y="12" width="1200" height="1"/>
+    <rect y="16"  width="1200" height="1"/><rect y="20" width="1200" height="1"/>
+  </g>
+
+  <!-- frame -->
+  <rect x="20" y="20" width="1160" height="590" rx="14" fill="none" stroke="#2b2925" stroke-width="2"/>
+
+  <!-- prompt line -->
+  <text x="72" y="118" font-family="'JetBrains Mono','DejaVu Sans Mono',monospace" font-size="26" fill="#8b8574">&gt; browser image cutout tool</text>
+
+  <!-- title -->
+  <text x="70" y="252" font-family="'JetBrains Mono','DejaVu Sans Mono',monospace" font-weight="700" font-size="104" letter-spacing="-2" fill="#ece7da">silhouette<tspan fill="#ffb000">_</tspan></text>
+  <text x="70" y="360" font-family="'JetBrains Mono','DejaVu Sans Mono',monospace" font-weight="700" font-size="104" letter-spacing="-2" fill="#ffb000" filter="url(#amberGlow)">studio</text>
+
+  <!-- tagline -->
+  <text x="72" y="452" font-family="'JetBrains Mono','DejaVu Sans Mono',monospace" font-size="30" fill="#ece7da">auto-segment · brush-refine · export</text>
+  <text x="72" y="498" font-family="'JetBrains Mono','DejaVu Sans Mono',monospace" font-size="30" fill="#8b8574">PNG / SVG / traced silhouette</text>
+
+  <!-- badge row -->
+  <g font-family="'JetBrains Mono','DejaVu Sans Mono',monospace" font-size="22" fill="#8b8574">
+    <rect x="72"  y="536" width="164" height="46" rx="6" fill="none" stroke="#2b2925"/>
+    <text x="94"  y="566">MediaPipe</text>
+    <rect x="252" y="536" width="150" height="46" rx="6" fill="none" stroke="#2b2925"/>
+    <text x="274" y="566">in-browser</text>
+    <rect x="418" y="536" width="128" height="46" rx="6" fill="none" stroke="#2b2925"/>
+    <text x="440" y="566">no upload</text>
+  </g>
+
+  <!-- decorative mark: extracted bust with marquee -->
+  <g transform="translate(880 315)">
+    <rect x="-150" y="-150" width="300" height="300" rx="16" fill="#0b0b0a" stroke="#2b2925" stroke-width="2"/>
+    <rect x="-120" y="-120" width="240" height="240" rx="8" fill="none" stroke="#ffb000" stroke-width="3" stroke-dasharray="14 10" opacity="0.85"/>
+    <g fill="#ffb000" filter="url(#amberGlow)">
+      <circle cx="0" cy="-42" r="44"/>
+      <path d="M-86 108c0-49 38-84 86-84s86 35 86 84z"/>
+    </g>
+  </g>
+</svg>
