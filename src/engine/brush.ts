@@ -1,7 +1,7 @@
 import { state, hasImage } from "../state";
 import { getMaskContext, markMaskDirty, setCursor } from "./canvas";
-import { screenToImage, isPanActive } from "./viewport";
-import { beginStroke } from "./history";
+import { screenToImage, isPanActive, onGestureStart } from "./viewport";
+import { beginStroke, abortStroke } from "./history";
 
 /**
  * Add/Erase brush. Paints into maskCanvas in IMAGE space so edits stay crisp at
@@ -16,6 +16,17 @@ import { beginStroke } from "./history";
 type Pt = { x: number; y: number };
 
 let last: Pt | null = null;
+
+/**
+ * Abandon the in-progress stroke and revert its paint. Safe to call when idle.
+ * Wired to the viewport's gesture-start signal (see `initBrush`).
+ */
+export function cancelStroke(): void {
+  if (!state.isPainting) return;
+  state.isPainting = false;
+  last = null;
+  abortStroke();
+}
 
 /** setPointerCapture throws if the pointer isn't active (e.g. synthetic events). */
 function capture(el: Element, id: number): void {
@@ -33,9 +44,19 @@ export function initBrush(canvas: HTMLCanvasElement): void {
   };
 
   const updateCursor = (e: PointerEvent): void => {
+    // No hover cursor on touch: the finger occludes the ring and, with no
+    // pointerleave on lift, it would linger where the last tap landed.
+    if (e.pointerType === "touch") {
+      setCursor(0, 0, false);
+      return;
+    }
     const rect = canvas.getBoundingClientRect();
     setCursor(e.clientX - rect.left, e.clientY - rect.top, hasImage() && !isPanActive());
   };
+
+  // A second finger turns the stroke into a navigation gesture — undo whatever
+  // the first finger painted and stop, so the mask isn't smeared while zooming.
+  onGestureStart(cancelStroke);
 
   canvas.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || !hasImage() || isPanActive()) return;

@@ -60,8 +60,8 @@ export function initPreviewModal(onSilhouette: () => void): PreviewModal {
     onSilhouette();
   });
   closeBtn.addEventListener("click", close);
-  root.addEventListener("mousedown", (e) => {
-    if (e.target === root) close(); // click on backdrop, not the panel
+  root.addEventListener("pointerdown", (e) => {
+    if (e.target === root) close(); // tap/click on backdrop, not the panel
   });
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && isOpen()) close();

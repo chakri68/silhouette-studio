@@ -61,6 +61,19 @@ export function beginStroke(): void {
   onChange?.();
 }
 
+/**
+ * Discard the stroke currently in progress: revert the mask to the snapshot
+ * `beginStroke` pushed and drop that entry. Used when a two-finger gesture
+ * interrupts a touch stroke — the stray dot the first finger left shouldn't
+ * survive as an edit or a history step.
+ */
+export function abortStroke(): void {
+  const snap = undoStack.pop();
+  if (!snap) return;
+  restore(snap);
+  onChange?.();
+}
+
 export function undo(): void {
   if (undoStack.length === 0) return;
   redoStack.push(capture());

@@ -36,6 +36,7 @@ html,
 body,
 #app {
   height: 100%;
+  height: 100dvh; /* track the mobile URL bar so the toolbar isn't clipped */
   margin: 0;
 }
 
@@ -163,7 +164,9 @@ body.booted .workspace {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  /* Clear the notch / rounded corners when viewport-fit=cover is in effect. */
+  padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 10px
+    max(14px, env(safe-area-inset-left));
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
@@ -250,6 +253,8 @@ body.booted .workspace {
   width: 100%;
   height: 100%;
   cursor: crosshair;
+  /* Own every touch: no browser scroll/pinch swallowing the gesture events. */
+  touch-action: none;
 }
 
 /* ── Dropzone (empty state) ─────────────────────────────────────────── */
@@ -722,5 +727,88 @@ body.booted .workspace {
   * {
     scrollbar-width: thin;
     scrollbar-color: #3a362e transparent;
+  }
+}
+
+/* ── Touch targets ──────────────────────────────────────────────────────
+   On a coarse pointer (finger) give the controls real hit area and make the
+   range sliders easier to grab. Applies on any touch device regardless of
+   width, so a large tablet gets fat targets too. */
+@media (pointer: coarse) {
+  .btn,
+  .tool {
+    min-height: 40px;
+  }
+  input[type="range"] {
+    height: 30px;
+  }
+  .sil-controls input[type="color"] {
+    width: 40px;
+    height: 32px;
+  }
+}
+
+/* ── Narrow screens (phones) ────────────────────────────────────────────
+   The desktop toolbar is a centered pill that assumes it fits on one line.
+   Below this width it becomes a full-width strip that scrolls horizontally,
+   so the controls never overflow the viewport or wrap unpredictably. */
+@media (max-width: 680px) {
+  .workspace {
+    padding: 8px;
+  }
+  .screen {
+    border-radius: 12px;
+  }
+
+  .topbar {
+    gap: 8px;
+  }
+  .topbar h1 {
+    font-size: 12px;
+  }
+  .btn {
+    padding: 7px 10px;
+  }
+
+  .toolbar {
+    left: 8px;
+    right: 8px;
+    /* Sit above the home indicator; keep clear of the safe-area inset. */
+    bottom: max(12px, env(safe-area-inset-bottom));
+    transform: none;
+    animation: none;
+    gap: 8px;
+    padding: 8px;
+    max-width: none;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .toolbar::-webkit-scrollbar {
+    display: none;
+  }
+  /* Don't let flex items shrink below their content in the scroll strip. */
+  .toolbar > *,
+  .tool-group {
+    flex: 0 0 auto;
+  }
+  .brush label {
+    display: none; /* the numeric readout is enough on small screens */
+  }
+  .brush input[type="range"] {
+    width: 90px;
+  }
+
+  .modal {
+    padding: 16px;
+    max-width: 94vw;
+  }
+  .modal-actions {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .modal-spacer {
+    display: none;
   }
 }
