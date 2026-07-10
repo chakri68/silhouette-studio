@@ -88,6 +88,28 @@ export function redo(): void {
   onChange?.();
 }
 
+/**
+ * Remap every stored snapshot through the same geometric op just applied to the
+ * image (flip/rotate/crop). Keeps undo/redo aligned with the transformed canvas
+ * — a snapshot captured before the transform must come back in the *new*
+ * geometry or it won't line up with the image. The remap may change dimensions
+ * (rotate swaps W/H, crop shrinks), so it returns the new size per snapshot.
+ */
+export function transformHistory(
+  remap: (
+    alpha: Uint8ClampedArray,
+    w: number,
+    h: number,
+  ) => { alpha: Uint8ClampedArray; w: number; h: number },
+): void {
+  const apply = (s: Snapshot): Snapshot => {
+    const r = remap(s.alpha, s.w, s.h);
+    return { w: r.w, h: r.h, alpha: r.alpha };
+  };
+  undoStack = undoStack.map(apply);
+  redoStack = redoStack.map(apply);
+}
+
 /** Drop all history — call when a new image is loaded (or re-seeded). */
 export function resetHistory(): void {
   undoStack = [];

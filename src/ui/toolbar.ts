@@ -1,6 +1,7 @@
 import { state } from "../state";
 import type { Tool } from "../state";
-import { markDirty } from "../engine/canvas";
+import { markDirty, applyTransform } from "../engine/canvas";
+import { enterCrop, cancelCrop } from "../engine/crop";
 import { undo, redo, canUndo, canRedo, setHistoryListener } from "../engine/history";
 
 /**
@@ -31,6 +32,14 @@ export function initToolbar(container: HTMLElement): void {
     <div class="tool-group">
       <button class="tool" id="undo" title="Undo — Ctrl/Cmd+Z">Undo</button>
       <button class="tool" id="redo" title="Redo — Ctrl/Cmd+Shift+Z">Redo</button>
+    </div>
+    <div class="sep"></div>
+    <div class="tool-group">
+      <button class="tool tool-icon" id="flip-h" title="Flip horizontal — H">↔</button>
+      <button class="tool tool-icon" id="flip-v" title="Flip vertical — V">↕</button>
+      <button class="tool tool-icon" id="rot-ccw" title="Rotate left — Shift+R">↺</button>
+      <button class="tool tool-icon" id="rot-cw" title="Rotate right — R">↻</button>
+      <button class="tool" id="crop" title="Crop — C">Crop</button>
     </div>
     <div class="sep"></div>
     <button class="tool" id="preview">Preview</button>
@@ -68,6 +77,27 @@ export function initToolbar(container: HTMLElement): void {
     redoBtn.disabled = !canRedo();
   };
 
+  // Flip/rotate cancel any open crop first (its rect coords wouldn't survive the
+  // geometry change), then remap the whole document — mask and history included.
+  const transform = (t: Parameters<typeof applyTransform>[0]): void => {
+    cancelCrop();
+    applyTransform(t);
+  };
+
+  container.querySelector<HTMLButtonElement>("#flip-h")!.addEventListener("click", () =>
+    transform({ type: "flipH" }),
+  );
+  container.querySelector<HTMLButtonElement>("#flip-v")!.addEventListener("click", () =>
+    transform({ type: "flipV" }),
+  );
+  container.querySelector<HTMLButtonElement>("#rot-ccw")!.addEventListener("click", () =>
+    transform({ type: "rotateCCW" }),
+  );
+  container.querySelector<HTMLButtonElement>("#rot-cw")!.addEventListener("click", () =>
+    transform({ type: "rotateCW" }),
+  );
+  container.querySelector<HTMLButtonElement>("#crop")!.addEventListener("click", () => enterCrop());
+
   addBtn.addEventListener("click", () => setTool("add"));
   eraseBtn.addEventListener("click", () => setTool("erase"));
   slider.addEventListener("input", () => setBrush(Number(slider.value)));
@@ -77,6 +107,9 @@ export function initToolbar(container: HTMLElement): void {
 
   window.addEventListener("keydown", (e) => {
     if (e.target instanceof HTMLInputElement) return;
+    // Leave shortcuts (incl. the existing letters) out of the way of browser
+    // chords — Ctrl/Cmd+C must copy, not enter crop; Ctrl+B stays free, etc.
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     switch (e.key) {
       case "b":
       case "B":
@@ -91,6 +124,24 @@ export function initToolbar(container: HTMLElement): void {
         break;
       case "]":
         setBrush(state.brushSize + 2);
+        break;
+      case "h":
+      case "H":
+        transform({ type: "flipH" });
+        break;
+      case "v":
+      case "V":
+        transform({ type: "flipV" });
+        break;
+      case "r":
+        transform({ type: "rotateCW" });
+        break;
+      case "R":
+        transform({ type: "rotateCCW" }); // Shift+R
+        break;
+      case "c":
+      case "C":
+        enterCrop();
         break;
     }
   });

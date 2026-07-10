@@ -1,4 +1,5 @@
 import { state } from "../state";
+import { transformHistory } from "./history";
 
 /**
  * Owns the canvases and the render loop.
@@ -38,6 +39,21 @@ let maskVersion = 0; // bumped on any mask change; lets the tracer skip re-traci
 const cursor = { x: 0, y: 0, visible: false };
 
 const RING_COLOR = { add: "#ffb000", erase: "#ff6b6b" };
+
+/** View transform snapshot handed to overlay renderers (image→screen mapping). */
+export interface ViewInfo {
+  scale: number;
+  offset: { x: number; y: number };
+  dpr: number;
+}
+
+// Extra pass drawn in screen space after the image (the crop rectangle). Kept as
+// a hook so the crop module can own its own drawing without canvas.ts importing
+// it — one-way dependency, no cycle.
+let overlayRenderer: ((ctx: CanvasRenderingContext2D, view: ViewInfo) => void) | null = null;
+export function setOverlayRenderer(cb: (ctx: CanvasRenderingContext2D, view: ViewInfo) => void): void {
+  overlayRenderer = cb;
+}
 
 export function initCanvas(canvas: HTMLCanvasElement): void {
   displayCanvas = canvas;
@@ -144,6 +160,130 @@ export function getMaskCanvas(): HTMLCanvasElement {
   return maskCanvas;
 }
 
+/**
+ * Geometric edits to the whole document. All are exact pixel remaps (no
+ * resampling): flips mirror, rotations are 90° quarter-turns, crop copies a
+ * sub-rectangle. Applied identically to the image, the mask, and every history
+ * snapshot so the selection never drifts off the picture.
+ */
+export type Transform =
+  | { type: "flipH" }
+  | { type: "flipV" }
+  | { type: "rotateCW" }
+  | { type: "rotateCCW" }
+  | { type: "crop"; x: number; y: number; w: number; h: number };
+
+/** Draw `src` (of size sw×sh) into a fresh canvas under transform `t`. */
+function renderTransform(
+  t: Transform,
+  src: CanvasImageSource,
+  sw: number,
+  sh: number,
+): HTMLCanvasElement {
+  const swaps = t.type === "rotateCW" || t.type === "rotateCCW";
+  const out = document.createElement("canvas");
+  out.width = t.type === "crop" ? t.w : swaps ? sh : sw;
+  out.height = t.type === "crop" ? t.h : swaps ? sw : sh;
+  const ctx = out.getContext("2d")!;
+  ctx.imageSmoothingEnabled = false; // exact copy — no blur at 90°/mirror
+  switch (t.type) {
+    case "flipH":
+      ctx.translate(sw, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(src, 0, 0);
+      break;
+    case "flipV":
+      ctx.translate(0, sh);
+      ctx.scale(1, -1);
+      ctx.drawImage(src, 0, 0);
+      break;
+    case "rotateCW":
+      ctx.translate(out.width, 0);
+      ctx.rotate(Math.PI / 2);
+      ctx.drawImage(src, 0, 0);
+      break;
+    case "rotateCCW":
+      ctx.translate(0, out.height);
+      ctx.rotate(-Math.PI / 2);
+      ctx.drawImage(src, 0, 0);
+      break;
+    case "crop":
+      ctx.drawImage(src, t.x, t.y, t.w, t.h, 0, 0, t.w, t.h);
+      break;
+  }
+  return out;
+}
+
+/** Run a history snapshot's alpha through the same transform as the image. */
+function remapAlpha(
+  t: Transform,
+  alpha: Uint8ClampedArray,
+  w: number,
+  h: number,
+): { alpha: Uint8ClampedArray; w: number; h: number } {
+  const src = document.createElement("canvas");
+  src.width = w;
+  src.height = h;
+  const sctx = src.getContext("2d")!;
+  const img = sctx.createImageData(w, h);
+  const d = img.data;
+  for (let i = 0, j = 0; i < alpha.length; i++, j += 4) {
+    d[j] = 255;
+    d[j + 1] = 255;
+    d[j + 2] = 255;
+    d[j + 3] = alpha[i];
+  }
+  sctx.putImageData(img, 0, 0);
+
+  const out = renderTransform(t, src, w, h);
+  const od = out.getContext("2d")!.getImageData(0, 0, out.width, out.height).data;
+  const na = new Uint8ClampedArray(out.width * out.height);
+  for (let i = 0, j = 3; i < na.length; i++, j += 4) na[i] = od[j];
+  return { alpha: na, w: out.width, h: out.height };
+}
+
+/**
+ * Apply a transform to the whole document: image, mask, history, and view. Crop
+ * coords are clamped to the current bounds first. Snapshots are transformed via
+ * the same `renderTransform`, so undo/redo stay pixel-aligned after the edit.
+ */
+export function applyTransform(t: Transform): void {
+  if (!state.image) return;
+  const sw = state.W;
+  const sh = state.H;
+
+  if (t.type === "crop") {
+    const x = Math.max(0, Math.min(sw - 1, Math.round(t.x)));
+    const y = Math.max(0, Math.min(sh - 1, Math.round(t.y)));
+    const w = Math.max(1, Math.min(sw - x, Math.round(t.w)));
+    const h = Math.max(1, Math.min(sh - y, Math.round(t.h)));
+    t = { type: "crop", x, y, w, h };
+  }
+
+  // Compute the new pixels from the *current* canvases before resizing (which
+  // clears them).
+  const nextImage = renderTransform(t, imageCanvas, sw, sh);
+  const nextMask = renderTransform(t, maskCanvas, sw, sh);
+  const nw = nextImage.width;
+  const nh = nextImage.height;
+
+  state.W = nw;
+  state.H = nh;
+  for (const c of [imageCanvas, maskCanvas, overlayCanvas]) {
+    c.width = nw;
+    c.height = nh;
+  }
+  ictx.clearRect(0, 0, nw, nh);
+  ictx.drawImage(nextImage, 0, 0);
+  mctx.clearRect(0, 0, nw, nh);
+  mctx.drawImage(nextMask, 0, 0);
+
+  transformHistory((alpha, aw, ah) => remapAlpha(t, alpha, aw, ah));
+
+  fitView();
+  markMaskDirty(); // overlay recompute + re-trace on next frame
+}
+
 /** Composite the final cutout: image kept only where selected (4.6). */
 export function buildCutout(): HTMLCanvasElement {
   cutoutCanvas.width = state.W;
@@ -217,6 +357,7 @@ function render(): void {
   dctx.drawImage(overlayCanvas, 0, 0);
   dctx.setTransform(1, 0, 0, 1, 0, 0);
 
+  overlayRenderer?.(dctx, { scale, offset, dpr });
   drawCursorRing();
 
   if (zoomReadout) zoomReadout.textContent = `${Math.round(scale * 100)}%`;

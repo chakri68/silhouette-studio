@@ -1,6 +1,7 @@
 import { state, hasImage } from "../state";
 import { getMaskContext, markMaskDirty, setCursor } from "./canvas";
 import { screenToImage, isPanActive, onGestureStart } from "./viewport";
+import { isCropActive } from "./crop";
 import { beginStroke, abortStroke } from "./history";
 
 /**
@@ -46,7 +47,7 @@ export function initBrush(canvas: HTMLCanvasElement): void {
   const updateCursor = (e: PointerEvent): void => {
     // No hover cursor on touch: the finger occludes the ring and, with no
     // pointerleave on lift, it would linger where the last tap landed.
-    if (e.pointerType === "touch") {
+    if (e.pointerType === "touch" || isCropActive()) {
       setCursor(0, 0, false);
       return;
     }
@@ -59,7 +60,7 @@ export function initBrush(canvas: HTMLCanvasElement): void {
   onGestureStart(cancelStroke);
 
   canvas.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0 || !hasImage() || isPanActive()) return;
+    if (e.button !== 0 || !hasImage() || isPanActive() || isCropActive()) return;
     state.isPainting = true;
     beginStroke(); // snapshot mask as it was before this stroke
     last = toImage(e);

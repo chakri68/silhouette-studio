@@ -2,6 +2,7 @@ import "./styles.css";
 import { initCanvas, setImage, seedMask, fitView } from "./engine/canvas";
 import { initViewport } from "./engine/viewport";
 import { initBrush } from "./engine/brush";
+import { initCrop, applyCrop, cancelCrop, isCropActive, setCropListener } from "./engine/crop";
 import { initHistory, resetHistory } from "./engine/history";
 import { segmenter, prewarm, setSegmentationProgress } from "./segmentation";
 import { initDropzone } from "./ui/dropzone";
@@ -37,6 +38,12 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
           <div class="busy-bar"><span></span></div>
         </div>
       </div>
+      <div class="cropbar hidden" id="cropbar">
+        <span class="cropbar-label">CROP</span>
+        <span class="cropbar-hint">drag a region</span>
+        <button class="tool" id="crop-apply">Apply</button>
+        <button class="tool" id="crop-cancel">Cancel</button>
+      </div>
     </div>
     <div class="toolbar hidden" id="toolbar"></div>
   </main>
@@ -55,12 +62,33 @@ const busyLabel = busy.querySelector<HTMLElement>(".busy-label")!;
 
 initCanvas(canvas);
 initViewport(canvas); // registers pointerdown before the brush, so pan wins
+initCrop(canvas); // crop runs before the brush too, so it claims the drag first
 initBrush(canvas);
 initHistory();
 initToolbar(toolbar);
 const silhouette = initSilhouettePanel();
 const preview = initPreviewModal(() => silhouette.open());
 toolbar.querySelector<HTMLButtonElement>("#preview")!.addEventListener("click", () => preview.open());
+
+// Crop mode: the action bar and the rest of the toolbar swap in/out together.
+const cropbar = document.querySelector<HTMLElement>("#cropbar")!;
+cropbar.querySelector<HTMLButtonElement>("#crop-apply")!.addEventListener("click", () => applyCrop());
+cropbar.querySelector<HTMLButtonElement>("#crop-cancel")!.addEventListener("click", () => cancelCrop());
+setCropListener(() => {
+  const on = isCropActive();
+  cropbar.classList.toggle("hidden", !on);
+  toolbar.classList.toggle("disabled", on); // no brushing/tools while framing a crop
+});
+window.addEventListener("keydown", (e) => {
+  if (!isCropActive()) return;
+  if (e.key === "Enter") {
+    e.preventDefault();
+    applyCrop();
+  } else if (e.key === "Escape") {
+    e.preventDefault();
+    cancelCrop();
+  }
+});
 setSegmentationProgress((p) => {
   busyLabel.textContent =
     p.stage === "loading" && p.pct !== null ? `LOADING MODEL ${p.pct}%` : "AUTO-SELECTING";
