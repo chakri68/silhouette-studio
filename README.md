@@ -17,9 +17,12 @@ and hands you a brush for the rest.
   guess. no server, no upload.
 - **refine by hand** — an add/erase brush paints the selection mask directly. the
   unselected region shows as a gray overlay; painting reveals or re-hides it.
-- **zoom + pan** — scroll to zoom toward the cursor, space- or middle-drag to pan.
-  paint at any zoom; edits stay crisp because they happen in image space, not
-  screen space.
+- **transform** — flip horizontal / vertical, rotate in 90° steps, crop to a
+  region. the image, the selection mask, and the whole undo history all move
+  together, so your cutout never drifts off the picture.
+- **zoom + pan** — scroll (or pinch) to zoom toward the cursor, space- or
+  middle-drag to pan. on touch, one finger paints and two navigate. paint at any
+  zoom; edits stay crisp because they happen in image space, not screen space.
 - **undo / redo** — snapshot per stroke; the auto-seed is the floor you can't undo
   past.
 - **export**, three flavors:
@@ -36,6 +39,13 @@ at the image's native resolution. the visible canvas is composited every frame
 under a zoom/pan transform. painting happens in _image_ coordinates, so strokes
 don't smear when you're zoomed in, and devicePixelRatio is folded into the render
 transform so the brush lands where the cursor is on a retina screen.
+
+flip/rotate/crop are exact pixel remaps (mirror, 90° quarter-turn, sub-rect
+copy) — no resampling, so nothing softens. the trick is that the _same_ remap
+runs over the image, the mask, and every undo snapshot in one pass, which is what
+keeps the selection pinned to the picture across an edit. touch rides the same
+pointer-event path as the mouse: one finger is a brush stroke, a second finger
+switches to a two-finger pinch/pan and drops the stray dot the first one left.
 
 the auto-seed is [RMBG-1.4](https://huggingface.co/briaai/RMBG-1.4) via
 [transformers.js](https://github.com/huggingface/transformers.js), running in a
@@ -87,14 +97,19 @@ stdout and progress to stderr, so it pipes cleanly. first run pulls the weights
 
 ## keys
 
-| key                     | does               |
-| ----------------------- | ------------------ |
-| `B` / `E`               | add / erase brush  |
-| `[` / `]`               | brush size         |
-| scroll                  | zoom toward cursor |
-| space- or middle-drag   | pan                |
-| `Ctrl`/`Cmd` `+Z`       | undo               |
-| `Ctrl`/`Cmd` `+Shift+Z` | redo               |
+| key                     | does                        |
+| ----------------------- | --------------------------- |
+| `B` / `E`               | add / erase brush           |
+| `[` / `]`               | brush size                  |
+| `H` / `V`               | flip horizontal / vertical  |
+| `R` / `Shift+R`         | rotate right / left         |
+| `C`                     | crop (`Enter` apply, `Esc` cancel) |
+| scroll                  | zoom toward cursor          |
+| space- or middle-drag   | pan                         |
+| `Ctrl`/`Cmd` `+Z`       | undo                        |
+| `Ctrl`/`Cmd` `+Shift+Z` | redo                        |
+
+on touch: one finger paints, two fingers pinch-zoom and pan.
 
 ## honest caveats
 
@@ -103,13 +118,16 @@ stdout and progress to stderr, so it pipes cleanly. first run pulls the weights
   and animated while it churns.
 - the auto-seed is good, not psychic. stylized art or unusual subjects need more
   brushing. that's what the brush is for.
-- desktop mouse + wheel only for now. touch is structured-for but not built.
+- rotate is 90° steps only — no free angle yet (that one needs mask resampling).
+- the transforms themselves aren't in the undo stack: flip or rotate back to
+  reverse, crop commits. your _brush_ history survives them intact, though —
+  every snapshot gets remapped alongside the image.
 
 ## layout
 
 ```
 src/
-  engine/   canvas + compositing, viewport (zoom/pan), brush, undo history
+  engine/   canvas + compositing, viewport (zoom/pan/pinch), brush, crop, undo history
   ui/       toolbar, preview modal, silhouette panel, dropzone
   export/   png · svg · download
   segmentation.ts + .worker.ts   RMBG-1.4, off the main thread
