@@ -16,6 +16,7 @@
     />
     <meta name="author" content="chakri68" />
     <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
     <link rel="canonical" href="https://silhouette-studio.chakri.me/" />
 
     <!-- Icons -->
@@ -59,6 +60,24 @@
       href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=block"
       rel="stylesheet"
     />
+
+    <!-- Boot mask: pure-black with no visible content until the app has mounted
+         and its styles are applied, then reveal — kills the flash of unstyled
+         HTML (Vite injects CSS via JS in dev; also guards a slow first load). -->
+    <style>
+      html { background: #000; }
+      body { visibility: hidden; }
+    </style>
+    <script>
+      addEventListener("DOMContentLoaded", function () {
+        requestAnimationFrame(function () {
+          document.body.style.visibility = "visible";
+        });
+      });
+    </script>
+    <noscript><style>body { visibility: visible; }</style></noscript>
+    <!-- Amber Phosphor theme tokens — single source of truth -->
+    <link rel="stylesheet" href="https://theme.chakri.me/tokens.css" />
 
     <!-- Structured data -->
     <script type="application/ld+json">

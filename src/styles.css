@@ -1,27 +1,9 @@
+/* Tokens come from theme.chakri.me/tokens.css (linked in index.html). This is
+   just the base document styling that consumes them — no token defs locally. */
 :root {
-  /* Surfaces (darkest → lightest) */
-  --bg: #000000;
-  --panel-2: #000;
-  --panel: #0b0b0a;
-
-  /* Lines & text */
-  --border: #2b2925;
-  --text: #ece7da;
-  --muted: #8b8574;
-
-  /* Accent — the only chromatic color */
-  --accent: #ffb000;
-  --accent-dim: #cc8a00;
-  --warn: #ff6a2b;
-  --danger: #ff6b6b;
-
-  --font-pixel: "Press Start 2P", ui-monospace, monospace;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-
   font: 13px/1.45 var(--font-mono);
   color: var(--text);
   background: var(--bg);
-  color-scheme: dark;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
