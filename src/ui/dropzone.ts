@@ -12,7 +12,10 @@ interface DropzoneEls {
   openButton: HTMLElement;
 }
 
-export function initDropzone(els: DropzoneEls, onImage: (bmp: ImageBitmap) => void): void {
+export function initDropzone(
+  els: DropzoneEls,
+  onImage: (bmp: ImageBitmap, name: string) => void,
+): void {
   const { dropzone, fileInput, openButton } = els;
 
   const pick = () => fileInput.click();
@@ -47,6 +50,26 @@ export function initDropzone(els: DropzoneEls, onImage: (bmp: ImageBitmap) => vo
     if (file) void handle(file);
   });
 
+  // Paste an image from the clipboard (Cmd/Ctrl+V). Bound to the window, not the
+  // dropzone (it can't hold focus), so we gate on the tool's route screen being
+  // visible — otherwise a paste would load into every mounted-but-hidden tool.
+  window.addEventListener("paste", (e: ClipboardEvent) => {
+    if (dropzone.closest(".route-screen")?.classList.contains("hidden")) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.kind === "file" && it.type.startsWith("image/")) {
+        const file = it.getAsFile();
+        if (file) {
+          e.preventDefault();
+          void handle(file);
+          return;
+        }
+      }
+    }
+  });
+
   async function handle(file: File): Promise<void> {
     setError(dropzone, null);
     if (!file.type.startsWith("image/")) {
@@ -55,7 +78,7 @@ export function initDropzone(els: DropzoneEls, onImage: (bmp: ImageBitmap) => vo
     }
     try {
       const bmp = await decode(file);
-      onImage(bmp);
+      onImage(bmp, file.name);
     } catch (err) {
       console.error(err);
       setError(dropzone, "couldn't decode that image");
@@ -87,6 +110,6 @@ function setError(dropzone: HTMLElement, msg: string | null): void {
     sub.classList.add("error");
   } else {
     sub.classList.remove("error");
-    sub.textContent = "or click to browse — png · jpg · webp · gif · bmp";
+    sub.textContent = "click to browse, or paste — png · jpg · webp · gif · bmp";
   }
 }

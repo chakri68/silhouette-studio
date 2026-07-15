@@ -2,13 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
 
     <!-- Primary meta -->
-    <title>silhouette_studio — browser image cutout &amp; silhouette tool</title>
+    <title>studio — on-device image tools (silhouette &amp; grainery)</title>
     <meta
       name="description"
-      content="Extract a clean cutout or silhouette from any image, right in your browser. Auto-segment with an on-device AI matting model (RMBG-1.4), refine by hand with an add/erase brush, then export as PNG, SVG, or a traced flat silhouette. No upload — everything runs on-device."
+      content="A small hub of on-device image tools. Silhouette: extract a clean cutout with an AI matting model, refine by brush, export PNG/SVG/traced silhouette. Grainery: de-pixelate a low-res image and buy the detail back with film-grade grain on the GPU. No upload — everything runs in your browser."
     />
     <meta
       name="keywords"
@@ -28,28 +31,46 @@
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="silhouette_studio" />
-    <meta property="og:title" content="silhouette_studio — browser image cutout &amp; silhouette tool" />
+    <meta property="og:site_name" content="studio" />
+    <meta
+      property="og:title"
+      content="studio — on-device image tools (silhouette &amp; grainery)"
+    />
     <meta
       property="og:description"
-      content="Extract a clean cutout or silhouette from any image, right in your browser. Auto-segment, brush-refine, then export PNG / SVG / traced silhouette. Nothing leaves your device."
+      content="Two browser image tools that never upload. Silhouette: cut a subject out of any image. Grainery: de-pixelate and grain a low-res image on the GPU."
     />
     <meta property="og:url" content="https://silhouette-studio.chakri.me/" />
-    <meta property="og:image" content="https://silhouette-studio.chakri.me/og-image.png" />
+    <meta
+      property="og:image"
+      content="https://silhouette-studio.chakri.me/og-image.png"
+    />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="silhouette_studio — extract a cutout from any image in your browser" />
+    <meta
+      property="og:image:alt"
+      content="silhouette_studio — extract a cutout from any image in your browser"
+    />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="silhouette_studio — browser image cutout &amp; silhouette tool" />
+    <meta
+      name="twitter:title"
+      content="studio — on-device image tools (silhouette &amp; grainery)"
+    />
     <meta
       name="twitter:description"
-      content="Extract a clean cutout or silhouette from any image, right in your browser. Auto-segment, brush-refine, then export PNG / SVG / traced silhouette."
+      content="Two browser image tools that never upload. Silhouette: cut a subject out of any image. Grainery: de-pixelate and grain a low-res image on the GPU."
     />
-    <meta name="twitter:image" content="https://silhouette-studio.chakri.me/og-image.png" />
-    <meta name="twitter:image:alt" content="silhouette_studio — extract a cutout from any image in your browser" />
+    <meta
+      name="twitter:image"
+      content="https://silhouette-studio.chakri.me/og-image.png"
+    />
+    <meta
+      name="twitter:image:alt"
+      content="silhouette_studio — extract a cutout from any image in your browser"
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -65,8 +86,12 @@
          and its styles are applied, then reveal — kills the flash of unstyled
          HTML (Vite injects CSS via JS in dev; also guards a slow first load). -->
     <style>
-      html { background: #000; }
-      body { visibility: hidden; }
+      html {
+        background: #000;
+      }
+      body {
+        visibility: hidden;
+      }
     </style>
     <script>
       addEventListener("DOMContentLoaded", function () {
@@ -75,7 +100,13 @@
         });
       });
     </script>
-    <noscript><style>body { visibility: visible; }</style></noscript>
+    <noscript
+      ><style>
+        body {
+          visibility: visible;
+        }
+      </style></noscript
+    >
     <!-- Amber Phosphor theme tokens — single source of truth -->
     <link rel="stylesheet" href="https://theme.chakri.me/tokens.css" />
 

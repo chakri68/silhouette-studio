@@ -1,133 +1,83 @@
 import "./styles.css";
-import { initCanvas, setImage, seedMask, fitView } from "./engine/canvas";
-import { initViewport } from "./engine/viewport";
-import { initBrush } from "./engine/brush";
-import { initCrop, applyCrop, cancelCrop, isCropActive, setCropListener } from "./engine/crop";
-import { initHistory, resetHistory } from "./engine/history";
-import { segmenter, prewarm, setSegmentationProgress } from "./segmentation";
-import { initDropzone } from "./ui/dropzone";
-import { initToolbar } from "./ui/toolbar";
-import { initPreviewModal } from "./ui/previewModal";
-import { initSilhouettePanel } from "./ui/silhouettePanel";
+import { mountLanding } from "./ui/landing";
 
-document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
+/**
+ * App shell + hash router.
+ *
+ * The site is a small hub of independent, on-device image tools. Each tool owns
+ * its own full-screen "route screen" and is mounted lazily on first navigation
+ * via a dynamic import — so opening Grainery never pays for the silhouette
+ * segmentation model, and vice versa. Once mounted a screen is kept alive and
+ * just toggled with `.hidden`; tools hold internal state (loaded image, WebGL
+ * context) that we don't want to tear down on every route change.
+ */
+
+export type Route = "hub" | "silhouette" | "grainery";
+
+const app = document.querySelector<HTMLDivElement>("#app")!;
+app.innerHTML = `
   <div class="intro" id="intro">
-    <h1 class="intro-title">silhouette_studio</h1>
+    <h1 class="intro-title">studio</h1>
   </div>
-
-  <header class="topbar">
-    <h1>silhouette_studio</h1>
-    <div class="spacer"></div>
-    <span class="readout" id="zoom">—</span>
-    <button class="btn" id="fit" disabled>Fit</button>
-    <button class="btn" id="open">Open…</button>
-  </header>
-
-  <main class="workspace">
-    <div class="screen">
-      <canvas id="display"></canvas>
-      <div class="dropzone" id="dropzone">
-        <div class="dz-inner">
-          <div class="dz-title">DROP AN IMAGE</div>
-          <div class="dz-sub">or click to browse — png · jpg · webp · gif · bmp</div>
-        </div>
-      </div>
-      <div class="busy hidden" id="busy">
-        <div class="busy-box">
-          <div class="busy-label">AUTO-SELECTING</div>
-          <div class="busy-bar"><span></span></div>
-        </div>
-      </div>
-      <div class="cropbar hidden" id="cropbar">
-        <span class="cropbar-label">CROP</span>
-        <span class="cropbar-hint">drag a region</span>
-        <button class="tool" id="crop-apply">Apply</button>
-        <button class="tool" id="crop-cancel">Cancel</button>
-      </div>
-    </div>
-    <div class="toolbar hidden" id="toolbar"></div>
-  </main>
-
-  <input type="file" id="file" accept="image/*" hidden />
+  <div class="route-screen hidden" id="screen-hub"></div>
+  <div class="route-screen hidden" id="screen-silhouette"></div>
+  <div class="route-screen hidden" id="screen-grainery"></div>
 `;
 
-const canvas = document.querySelector<HTMLCanvasElement>("#display")!;
-const dropzone = document.querySelector<HTMLElement>("#dropzone")!;
-const fileInput = document.querySelector<HTMLInputElement>("#file")!;
-const openButton = document.querySelector<HTMLElement>("#open")!;
-const fitButton = document.querySelector<HTMLButtonElement>("#fit")!;
-const toolbar = document.querySelector<HTMLElement>("#toolbar")!;
-const busy = document.querySelector<HTMLElement>("#busy")!;
-const busyLabel = busy.querySelector<HTMLElement>(".busy-label")!;
+const screens: Record<Route, HTMLElement> = {
+  hub: document.getElementById("screen-hub")!,
+  silhouette: document.getElementById("screen-silhouette")!,
+  grainery: document.getElementById("screen-grainery")!,
+};
 
-initCanvas(canvas);
-initViewport(canvas); // registers pointerdown before the brush, so pan wins
-initCrop(canvas); // crop runs before the brush too, so it claims the drag first
-initBrush(canvas);
-initHistory();
-initToolbar(toolbar);
-const silhouette = initSilhouettePanel();
-const preview = initPreviewModal(() => silhouette.open());
-toolbar.querySelector<HTMLButtonElement>("#preview")!.addEventListener("click", () => preview.open());
+const mounted: Record<Route, boolean> = { hub: false, silhouette: false, grainery: false };
 
-// Crop mode: the action bar and the rest of the toolbar swap in/out together.
-const cropbar = document.querySelector<HTMLElement>("#cropbar")!;
-cropbar.querySelector<HTMLButtonElement>("#crop-apply")!.addEventListener("click", () => applyCrop());
-cropbar.querySelector<HTMLButtonElement>("#crop-cancel")!.addEventListener("click", () => cancelCrop());
-setCropListener(() => {
-  const on = isCropActive();
-  cropbar.classList.toggle("hidden", !on);
-  toolbar.classList.toggle("disabled", on); // no brushing/tools while framing a crop
-});
-window.addEventListener("keydown", (e) => {
-  if (!isCropActive()) return;
-  if (e.key === "Enter") {
-    e.preventDefault();
-    applyCrop();
-  } else if (e.key === "Escape") {
-    e.preventDefault();
-    cancelCrop();
+function parseRoute(): Route {
+  const h = location.hash.replace(/^#\/?/, "");
+  return h === "silhouette" || h === "grainery" ? h : "hub";
+}
+
+export function navigate(route: Route): void {
+  location.hash = route === "hub" ? "#/" : `#/${route}`;
+}
+
+async function show(route: Route): Promise<void> {
+  if (!mounted[route]) {
+    mounted[route] = true; // set first: mount is async, guard against double-entry
+    try {
+      if (route === "hub") mountLanding(screens.hub, navigate);
+      else if (route === "silhouette")
+        (await import("./tools/silhouette/index")).mountSilhouette(screens.silhouette, navigate);
+      else (await import("./tools/grainery/index")).mountGrainery(screens.grainery, navigate);
+    } catch (err) {
+      mounted[route] = false;
+      console.error(`failed to mount ${route}:`, err);
+    }
   }
-});
-setSegmentationProgress((p) => {
-  busyLabel.textContent =
-    p.stage === "loading" && p.pct !== null ? `LOADING MODEL ${p.pct}%` : "AUTO-SELECTING";
-});
-prewarm(); // start fetching the segmentation model in the background
 
-initDropzone({ dropzone, fileInput, openButton }, (bmp) => {
-  setImage(bmp);
-  resetHistory();
-  dropzone.classList.add("hidden");
-  toolbar.classList.remove("hidden");
-  fitButton.disabled = false;
-  void seed(bmp);
-});
+  for (const key of Object.keys(screens) as Route[]) {
+    screens[key].classList.toggle("hidden", key !== route);
+  }
+  document.title = TITLES[route];
+  // Canvas-based tools size themselves off clientWidth, which is 0 while hidden.
+  // Kick a resize now that the screen is visible so they lay out correctly.
+  window.dispatchEvent(new Event("resize"));
+}
 
-fitButton.addEventListener("click", () => fitView());
+const TITLES: Record<Route, string> = {
+  hub: "studio — on-device image tools",
+  silhouette: "silhouette — browser image cutout & silhouette tool",
+  grainery: "grainery — de-pixelate & grain, in your browser",
+};
 
-// Boot sequence: the intro overlay is in the DOM from first paint and stays
-// dormant until fonts load; `body.booted` then runs the title's fly-up timeline
-// (see .intro in styles.css). Remove the overlay once the animation ends.
-const intro = document.querySelector<HTMLElement>("#intro")!;
+window.addEventListener("hashchange", () => void show(parseRoute()));
+void show(parseRoute());
+
+// Boot splash: the intro overlay ships in the DOM from first paint so nothing
+// flashes unstyled. `body.booted` (added once the pixel font is ready) runs the
+// title's fade+glow, then it dissolves and the hub reveals underneath.
+const intro = document.getElementById("intro")!;
 intro.addEventListener("animationend", () => intro.classList.add("hidden"), { once: true });
-
-const boot = () => document.body.classList.add("booted");
+const boot = (): void => document.body.classList.add("booted");
 document.fonts?.ready.then(boot).catch(boot);
 setTimeout(boot, 1500); // fallback if font loading stalls
-
-/** Auto-segment and pre-fill the mask. The busy overlay blocks brushing until done. */
-async function seed(source: ImageBitmap): Promise<void> {
-  busy.classList.remove("hidden");
-  try {
-    const res = await segmenter.segment(source);
-    seedMask(res.alpha, res.width, res.height);
-    resetHistory(); // the seed is the history floor
-  } catch (err) {
-    // Model unavailable or subject unrecognized — leave the mask empty; the
-    // brush is the workhorse. Not fatal.
-    console.error("auto-segmentation failed:", err);
-  } finally {
-    busy.classList.add("hidden");
-  }
-}
