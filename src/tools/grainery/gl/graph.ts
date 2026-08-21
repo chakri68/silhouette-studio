@@ -81,6 +81,10 @@ export class Grapher {
     // v=0. (UNPACK_FLIP_Y_WEBGL is silently ignored for an orientation-processed
     // ImageBitmap in Chromium, so we don't rely on it — present() flips v
     // instead, which also keeps the export readback correct.)
+    // RGBA8 keeps the alpha channel; callers decode with premultiplyAlpha
+    // "premultiply" so the texture's premultiplication state is known rather than
+    // UA-dependent — UNPACK_PREMULTIPLY_ALPHA_WEBGL is ignored for ImageBitmap
+    // sources, so asking at decode time is the only way to be sure.
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
     // NEAREST: upscale taps land on texel centres, and the "before" view wants the
     // honest blocky source.
@@ -219,7 +223,12 @@ export class Grapher {
     return { x: (this.d.w * s) / canvasW, y: (this.d.h * s) / canvasH };
   }
 
-  /** Composite the finished result to the canvas, with the split compare + view. */
+  /**
+   * Composite the finished result to the canvas, with the split compare + view.
+   * `checker` is the transparency checkerboard's cell size in device pixels —
+   * the image is composited over it, so anything the source left transparent
+   * reads as transparent instead of as whatever colour sat under alpha=0.
+   */
   present(
     canvasW: number,
     canvasH: number,
@@ -228,6 +237,7 @@ export class Grapher {
     zoom = 1,
     panX = 0,
     panY = 0,
+    checker = 10,
   ): void {
     if (!this.d || !this.srcTex) return;
     const gl = this.gl;
@@ -244,10 +254,14 @@ export class Grapher {
     gl.uniform1f(this.u(this.progPresent, "u_split"), split);
     gl.uniform1f(this.u(this.progPresent, "u_showSplit"), showSplit ? 1 : 0);
     gl.uniform2f(this.u(this.progPresent, "u_seed"), 17, 31);
+    gl.uniform1f(this.u(this.progPresent, "u_checker"), Math.max(1, checker));
     this.draw(null, canvasW, canvasH);
   }
 
-  /** Read the finished full-resolution result back as sRGB pixels (top-down). */
+  /**
+   * Read the finished full-resolution result back as straight (non-premultiplied)
+   * sRGB + alpha, top-down — exactly what ImageData expects.
+   */
   readResult(): { data: Uint8ClampedArray; w: number; h: number } {
     if (!this.d) throw new Error("nothing to export");
     const gl = this.gl;
@@ -265,6 +279,7 @@ export class Grapher {
     gl.uniform1f(this.u(this.progPresent, "u_split"), 0);
     gl.uniform1f(this.u(this.progPresent, "u_showSplit"), 0);
     gl.uniform2f(this.u(this.progPresent, "u_seed"), 17, 31);
+    gl.uniform1f(this.u(this.progPresent, "u_checker"), 0); // export: no checkerboard, keep real alpha
     this.draw(out, w, h);
 
     const buf = new Uint8Array(w * h * 4);
