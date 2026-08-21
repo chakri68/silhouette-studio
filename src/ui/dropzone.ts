@@ -86,12 +86,24 @@ export function initDropzone(
   }
 }
 
+// `premultiplyAlpha` defaults to "default", which is UA's choice. Grainery uploads
+// the bitmap straight to a texture and has to know which it got (WebGL ignores
+// UNPACK_PREMULTIPLY_ALPHA_WEBGL for ImageBitmap sources), so pin it. Premultiplied
+// is also the right state to downscale in — resampling straight colour across an
+// alpha edge pulls the RGB hiding under the transparent pixels into the visible
+// ones, which is the classic dark fringe.
+const BITMAP_OPTS: ImageBitmapOptions = { premultiplyAlpha: "premultiply" };
+
 async function decode(file: Blob): Promise<ImageBitmap> {
-  let bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+  let bmp = await createImageBitmap(file, {
+    ...BITMAP_OPTS,
+    imageOrientation: "from-image",
+  });
   const longest = Math.max(bmp.width, bmp.height);
   if (longest > MAX_SIDE) {
     const s = MAX_SIDE / longest;
     const resized = await createImageBitmap(bmp, {
+      ...BITMAP_OPTS,
       resizeWidth: Math.round(bmp.width * s),
       resizeHeight: Math.round(bmp.height * s),
       resizeQuality: "high",

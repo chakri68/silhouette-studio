@@ -16,6 +16,10 @@ import { DEFAULTS, PRESETS, type Params, type PresetName } from "./core/params";
  * divider only re-presents.
  */
 
+// Transparency checkerboard cell, in CSS px — matches the silhouette tool's
+// preview so a cutout looks the same in both places.
+const CHECKER_CSS_PX = 10;
+
 const PRESET_NAMES: PresetName[] = [
   "Rescue",
   "35mm",
@@ -102,7 +106,11 @@ export function mountGrainery(
   }
 
   const params: Params = { ...DEFAULTS };
-  const exportOpts = { format: "png" as "png" | "jpeg", quality: 92 };
+  const exportOpts = {
+    format: "png" as "png" | "jpeg",
+    quality: 92,
+    matte: "#ffffff", // JPEG has no alpha — transparent pixels land on this
+  };
   let sourceName = "image";
   let currentBitmap: ImageBitmap | null = null; // kept so flip/rotate/crop can re-derive
   let split = 0.5;
@@ -152,7 +160,14 @@ export function mountGrainery(
       <label for="g-quality">quality<span class="g-val">92</span></label>
       <input id="g-quality" type="range" min="60" max="100" step="1" value="92" />
     </div>
-    <small class="g-note hidden" id="g-jpeg-note">JPEG compression eats fine grain — it's the first thing the quantizer throws away. Prefer PNG, or keep quality ≥ 90.</small>
+    <div class="g-row hidden" id="g-matte-row">
+      <label for="g-matte">matte</label>
+      <select id="g-matte">
+        <option value="#ffffff" selected>white</option>
+        <option value="#000000">black</option>
+      </select>
+    </div>
+    <small class="g-note hidden" id="g-jpeg-note">JPEG compression eats fine grain — it's the first thing the quantizer throws away, and it can't hold transparency either, so anything see-through lands on the matte. Prefer PNG, or keep quality ≥ 90.</small>
   `;
   panel.appendChild(exportGroup);
 
@@ -162,11 +177,17 @@ export function mountGrainery(
     exportGroup.querySelector<HTMLInputElement>("#g-quality")!;
   const qualityVal = exportGroup.querySelector<HTMLElement>(".g-val")!;
   const jpegNote = exportGroup.querySelector<HTMLElement>("#g-jpeg-note")!;
+  const matteRow = exportGroup.querySelector<HTMLElement>("#g-matte-row")!;
+  const matteSel = exportGroup.querySelector<HTMLSelectElement>("#g-matte")!;
   formatSel.addEventListener("change", () => {
     exportOpts.format = formatSel.value as "png" | "jpeg";
     const jpeg = exportOpts.format === "jpeg";
     qualityRow.classList.toggle("hidden", !jpeg);
+    matteRow.classList.toggle("hidden", !jpeg);
     jpegNote.classList.toggle("hidden", !jpeg);
+  });
+  matteSel.addEventListener("change", () => {
+    exportOpts.matte = matteSel.value;
   });
   qualityInput.addEventListener("input", () => {
     exportOpts.quality = Number(qualityInput.value);
@@ -199,6 +220,7 @@ export function mountGrainery(
         zoom,
         panX,
         panY,
+        Math.max(6, Math.round(CHECKER_CSS_PX * dpr)), // gl_FragCoord is device px
       );
       presentDirty = false;
     }
@@ -740,7 +762,7 @@ export function mountGrainery(
   async function exportImage(mode: "copy" | "save"): Promise<void> {
     if (!grapher.hasSource()) return;
     grapher.render(params); // ensure the full-res result is current
-    const { data, w, h } = grapher.readResult();
+    const { data, w, h } = grapher.readResult(); // straight sRGB + alpha
     const off = new OffscreenCanvas(w, h);
     const img = new ImageData(w, h);
     img.data.set(data);
@@ -761,7 +783,7 @@ export function mountGrainery(
     }
 
     const jpeg = exportOpts.format === "jpeg";
-    const blob = await off.convertToBlob(
+    const blob = await (jpeg ? matted(off, exportOpts.matte) : off).convertToBlob(
       jpeg
         ? { type: "image/jpeg", quality: exportOpts.quality / 100 }
         : { type: "image/png" },
@@ -780,6 +802,21 @@ export function mountGrainery(
     note.textContent = grapher.capabilityNote;
     panel.appendChild(note);
   }
+}
+
+/**
+ * Composite onto an opaque matte. JPEG can't carry alpha and the encoder would
+ * otherwise flatten transparent pixels onto whatever it feels like (black, in
+ * Chromium) — this makes the choice explicit. putImageData overwrites rather than
+ * blends, so the fill has to happen on a second canvas the result draws over.
+ */
+function matted(src: OffscreenCanvas, color: string): OffscreenCanvas {
+  const out = new OffscreenCanvas(src.width, src.height);
+  const ctx = out.getContext("2d")!;
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, out.width, out.height);
+  ctx.drawImage(src, 0, 0);
+  return out;
 }
 
 /** True when this tool's route screen is hidden (so global key handlers no-op). */

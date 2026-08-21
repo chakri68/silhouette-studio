@@ -7,6 +7,10 @@
 
 export type TransformKind = "flipH" | "flipV" | "rotateCW" | "rotateCCW";
 
+// Match the ingest contract: the GL pipeline assumes a premultiplied source
+// texture, and the UA default is otherwise its own choice. See ui/dropzone.ts.
+const BITMAP_OPTS: ImageBitmapOptions = { premultiplyAlpha: "premultiply" };
+
 export async function transformBitmap(src: ImageBitmap, kind: TransformKind): Promise<ImageBitmap> {
   const swaps = kind === "rotateCW" || kind === "rotateCCW";
   const cnv = document.createElement("canvas");
@@ -33,7 +37,7 @@ export async function transformBitmap(src: ImageBitmap, kind: TransformKind): Pr
       break;
   }
   ctx.drawImage(src, 0, 0);
-  return createImageBitmap(cnv);
+  return createImageBitmap(cnv, BITMAP_OPTS);
 }
 
 export async function cropBitmap(
@@ -49,5 +53,5 @@ export async function cropBitmap(
   const ctx = cnv.getContext("2d")!;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(src, x, y, w, h, 0, 0, w, h);
-  return createImageBitmap(cnv);
+  return createImageBitmap(cnv, BITMAP_OPTS);
 }

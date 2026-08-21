@@ -3,6 +3,14 @@
  * build plugin is needed. Every fragment shader gets PRELUDE prepended (color
  * space conversions) — the whole chain works in linear light and OKLab, sRGB
  * only at ingest and the final present.
+ *
+ * Alpha convention: the source texture holds *premultiplied sRGB* (callers pin
+ * premultiplyAlpha at decode so this isn't the UA's choice), and every
+ * intermediate target holds *premultiplied linear*. Premultiplied is the only space where filtering
+ * is correct across an alpha edge — weighting straight colour drags whatever RGB
+ * happened to sit under the transparent texels into the visible pixels, which is
+ * the classic dark fringe. Only the two nonlinear stages unpremultiply: grain
+ * needs straight colour for OKLab, present needs it for the transfer curve.
  */
 
 // Full-screen triangle. No vertex buffer — positions come from gl_VertexID.
@@ -65,8 +73,13 @@ uniform sampler2D u_src;
 uniform vec2 u_srcSize;
 uniform int u_kernel; // 0 nearest, 1 mitchell(B=C=1/3), 2 catmull(B=0,C=1/2)
 
-vec3 tap(vec2 px) {
-  return srgb2lin(texture(u_src, (px + 0.5) / u_srcSize).rgb);
+// Unpremultiply before the transfer curve (srgb2lin is nonlinear — running it on
+// premultiplied values is simply wrong), then re-premultiply so the cubic kernel
+// weights premultiplied linear.
+vec4 tap(vec2 px) {
+  vec4 t = texture(u_src, (px + 0.5) / u_srcSize);
+  vec3 straight = t.a > 0.0 ? t.rgb / t.a : vec3(0.0);
+  return vec4(srgb2lin(straight) * t.a, t.a);
 }
 float cubic(float x, float B, float C) {
   x = abs(x);
@@ -77,7 +90,7 @@ float cubic(float x, float B, float C) {
 }
 void main() {
   if (u_kernel == 0) {
-    o_col = vec4(tap(floor(v_uv * u_srcSize)), 1.0);
+    o_col = tap(floor(v_uv * u_srcSize));
     return;
   }
   float B = u_kernel == 1 ? 1.0/3.0 : 0.0;
@@ -85,7 +98,7 @@ void main() {
   vec2 coord = v_uv * u_srcSize - 0.5;
   vec2 f = fract(coord);
   vec2 base = floor(coord);
-  vec3 acc = vec3(0.0);
+  vec4 acc = vec4(0.0);
   float wsum = 0.0;
   for (int j = -1; j <= 2; j++) {
     float wy = cubic(float(j) - f.y, B, C);
@@ -96,7 +109,12 @@ void main() {
       wsum += w;
     }
   }
-  o_col = vec4(acc / wsum, 1.0);
+  // The cubic kernels have negative lobes, so the result rings past the valid
+  // range. RGB keeps its overshoot exactly as before (the pipeline is linear and
+  // the present clamps); only coverage has to be bounded, since every downstream
+  // unpremultiply divides by it.
+  vec4 outc = acc / wsum;
+  o_col = vec4(outc.rgb, clamp(outc.a, 0.0, 1.0));
 }`;
 
 // Stage 2 — deblock. Bicubic on a blocky source gives *soft* blocks: the steps
@@ -113,24 +131,33 @@ uniform float u_preserve; // edge preservation 0..1
 uniform float u_block;    // output px per source pixel (staircase step size)
 
 float lum(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
-float lumAt(vec2 uv) { return lum(texture(u_tex, uv).rgb); }
+
+// The structure signal is two channels: premultiplied luma and alpha. A cutout's
+// silhouette is an edge in alpha that luma alone can miss entirely (a black
+// subject on transparent is 0 on both sides), and the tensor sums over channels
+// anyway. For an opaque image the alpha gradient is zero everywhere, so the
+// second channel contributes nothing and this reduces to the old luma-only tensor.
+vec2 sig(vec2 uv) {
+  vec4 t = texture(u_tex, uv);
+  return vec2(lum(t.rgb), t.a);
+}
 
 void main() {
   vec2 px = 1.0 / u_size;
-  vec3 c0 = texture(u_tex, v_uv).rgb;
-  if (u_amount <= 0.001) { o_col = vec4(c0, 1.0); return; }
+  vec4 c0 = texture(u_tex, v_uv);
+  if (u_amount <= 0.001) { o_col = c0; return; }
 
-  // Structure tensor J = [[Ix², IxIy],[IxIy, Iy²]], Gaussian-smoothed (σ≈1.5px).
+  // Structure tensor J = Σ_ch ∇I_ch ∇I_chᵀ, Gaussian-smoothed (σ≈1.5px).
   float Jxx = 0.0, Jxy = 0.0, Jyy = 0.0, ws = 0.0;
   for (int j = -2; j <= 2; j++) {
     for (int i = -2; i <= 2; i++) {
       vec2 uv = v_uv + vec2(float(i), float(j)) * px;
-      float gx = (lumAt(uv + vec2(px.x, 0.0)) - lumAt(uv - vec2(px.x, 0.0))) * 0.5;
-      float gy = (lumAt(uv + vec2(0.0, px.y)) - lumAt(uv - vec2(0.0, px.y))) * 0.5;
+      vec2 gx = (sig(uv + vec2(px.x, 0.0)) - sig(uv - vec2(px.x, 0.0))) * 0.5;
+      vec2 gy = (sig(uv + vec2(0.0, px.y)) - sig(uv - vec2(0.0, px.y))) * 0.5;
       float w = exp(-(float(i * i) + float(j * j)) / (2.0 * 1.5 * 1.5));
-      Jxx += w * gx * gx;
-      Jxy += w * gx * gy;
-      Jyy += w * gy * gy;
+      Jxx += w * dot(gx, gx);
+      Jxy += w * dot(gx, gy);
+      Jyy += w * dot(gy, gy);
       ws += w;
     }
   }
@@ -155,22 +182,24 @@ void main() {
   float sigmaR = mix(0.30, 0.03, u_preserve); // bilateral range — tight = preserve
 
   const int R = 3;
-  float l0 = lum(c0);
-  vec3 acc = vec3(0.0);
+  vec2 s0 = vec2(lum(c0.rgb), c0.a);
+  vec4 acc = vec4(0.0);
   float wsum = 0.0;
   for (int j = -R; j <= R; j++) {
     for (int i = -R; i <= R; i++) {
       vec2 off = (edge * (float(i) / float(R)) * along + grad * (float(j) / float(R)) * across) * px;
-      vec3 s = texture(u_tex, v_uv + off).rgb;
+      vec4 s = texture(u_tex, v_uv + off);
       float wsg = exp(-0.5 * (float(i * i) + float(j * j)) / (float(R * R) / 9.0));
-      float dl = lum(s) - l0;
-      float wr = exp(-0.5 * dl * dl / (sigmaR * sigmaR));
+      // Range weight over both channels, so the silhouette counts as a border the
+      // filter refuses to cross — same reason it won't cross a luma edge.
+      vec2 d = vec2(lum(s.rgb), s.a) - s0;
+      float wr = exp(-0.5 * dot(d, d) / (sigmaR * sigmaR));
       float w = wsg * wr;
       acc += w * s;
       wsum += w;
     }
   }
-  o_col = vec4(mix(c0, acc / max(wsum, 1e-5), u_amount), 1.0);
+  o_col = mix(c0, acc / max(wsum, 1e-5), u_amount);
 }`;
 
 // Stage 3 — grain. Works in OKLab: grain rides the L channel so it's perceptually
@@ -203,7 +232,11 @@ float response(float L, float g) { return pow(clamp(4.0 * L * (1.0 - L), 0.0, 1.
 float softLight(float a, float b) { return (1.0 - 2.0 * b) * a * a + 2.0 * b * a; }
 
 void main() {
-  vec3 lin = texture(u_tex, v_uv).rgb;
+  vec4 t = texture(u_tex, v_uv);
+  // Fully transparent texels carry no colour to grain, and re-premultiplying by
+  // a=0 would zero the result anyway — bail before the OKLab round trip.
+  if (t.a <= 0.0) { o_col = vec4(0.0); return; }
+  vec3 lin = t.rgb / t.a; // straight linear — OKLab is nonlinear, premultiplied is meaningless here
   vec3 lab = lin2oklab(lin);
   lab.yz *= (1.0 - u_desaturate);
 
@@ -221,7 +254,7 @@ void main() {
     lab.y += u_chroma * 0.03 * grain(gl_FragCoord.xy, vec2(11.0, 23.0));
     lab.z += u_chroma * 0.03 * grain(gl_FragCoord.xy, vec2(101.0, 53.0));
   }
-  o_col = vec4(oklab2lin(lab), 1.0);
+  o_col = vec4(oklab2lin(lab) * t.a, t.a);
 }`;
 
 // Stage 4 — finish. Small-radius unsharp for micro-contrast (large radii find the
@@ -236,15 +269,18 @@ uniform float u_halation; // 0..1
 
 void main() {
   vec2 px = 1.0 / u_size;
-  vec3 c = texture(u_tex, v_uv).rgb;
+  vec4 c = texture(u_tex, v_uv);
 
   // Unsharp: blur = 4-neighbour average at 1px, sharpen = c + amt*(c - blur).
-  vec3 blur = (
-    texture(u_tex, v_uv + vec2(px.x, 0.0)).rgb +
-    texture(u_tex, v_uv - vec2(px.x, 0.0)).rgb +
-    texture(u_tex, v_uv + vec2(0.0, px.y)).rgb +
-    texture(u_tex, v_uv - vec2(0.0, px.y)).rgb) * 0.25;
+  // Runs on the whole premultiplied vec4 — it's a linear operator, so alpha gets
+  // the same treatment as colour and the cutout edge stays in step with it.
+  vec4 blur = (
+    texture(u_tex, v_uv + vec2(px.x, 0.0)) +
+    texture(u_tex, v_uv - vec2(px.x, 0.0)) +
+    texture(u_tex, v_uv + vec2(0.0, px.y)) +
+    texture(u_tex, v_uv - vec2(0.0, px.y))) * 0.25;
   c += u_sharpen * (c - blur);
+  c.a = clamp(c.a, 0.0, 1.0); // overshoot is fine for light, not for coverage
 
   // Halation: ring-sample the thresholded highlights wide, screen back low.
   if (u_halation > 0.0) {
@@ -252,33 +288,46 @@ void main() {
     float r = 6.0;
     for (int k = 0; k < 8; k++) {
       float a = float(k) * 0.7853981634; // 2pi/8
-      vec3 s = texture(u_tex, v_uv + vec2(cos(a), sin(a)) * px * r).rgb;
-      bloom += max(s - 0.75, 0.0);
+      vec4 s = texture(u_tex, v_uv + vec2(cos(a), sin(a)) * px * r);
+      bloom += max(s.rgb - 0.75 * s.a, 0.0); // premultiplied form of (straight - 0.75) * a
     }
     bloom /= 8.0;
     vec3 tint = bloom * vec3(1.0, 0.6, 0.4); // warm halo
-    c = 1.0 - (1.0 - c) * (1.0 - tint * u_halation * 2.0); // screen
+    // Screen wants straight colour, so unpremultiply, screen, re-premultiply. The
+    // tint stays premultiplied on the way in, which scales the halo by coverage —
+    // a glow reaching past the alpha edge would mean growing the silhouette, and
+    // that's a different feature. At a=1 this is the original expression exactly.
+    vec3 straight = c.rgb / max(c.a, 1e-4);
+    straight = 1.0 - (1.0 - straight) * (1.0 - tint * u_halation * 2.0);
+    c.rgb = straight * c.a;
   }
-  o_col = vec4(max(c, 0.0), 1.0);
+  o_col = vec4(max(c.rgb, 0.0), c.a);
 }`;
 
 // Present — composite to the canvas. Left of the split shows the source at output
 // scale sampled NEAREST (the honest "before": still blocky); right shows the
 // processed result, linear→sRGB with a TPDF dither on the 8-bit quantization to
 // kill gradient banding. Aspect-fit letterboxing, amber divider.
+//
+// This is also the export path (u_checker = 0), which is what makes the two modes
+// worth one shader: on screen the image is composited over a checkerboard and the
+// canvas comes out opaque; for export nothing is composited and alpha is written
+// straight, which is what ImageData wants.
 export const PRESENT = PRELUDE + /* glsl */ `
-uniform sampler2D u_result; // linear processed
-uniform sampler2D u_src;    // sRGB source, NEAREST
+uniform sampler2D u_result; // premultiplied linear processed
+uniform sampler2D u_src;    // premultiplied sRGB source, NEAREST
 uniform vec2 u_fit;         // image size / canvas size (<=1 on the fitted axis)
 uniform float u_zoom;       // view zoom (1 = fit); pans/zooms are canvas-space only
 uniform vec2 u_pan;         // view pan in canvas (v_uv) units
 uniform float u_split;      // 0..1 in canvas x
 uniform float u_showSplit;  // 1 to draw divider + before/after, 0 = all processed
 uniform vec2 u_seed;
+uniform float u_checker;    // checker cell size in device px; 0 = export (straight alpha out)
 
 float rnd(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
 void main() {
+  bool display = u_checker > 0.0;
   vec3 bg = vec3(0.0);
   // View transform first (zoom toward / pan across the fitted image), then the
   // aspect-fit. u_zoom=1, u_pan=0 collapses this back to plain fit (export path).
@@ -289,22 +338,37 @@ void main() {
   // present), so it stays consistent everywhere.
   uv.y = 1.0 - uv.y;
   if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
-    o_col = vec4(bg, 1.0);
+    // Letterbox is chrome, not image: opaque on screen, empty on export (where
+    // the readback is exactly image-sized anyway, so this never fires).
+    o_col = vec4(bg, display ? 1.0 : 0.0);
     return;
   }
 
   bool before = u_showSplit > 0.5 && v_uv.x < u_split;
+  vec4 t = before ? texture(u_src, uv) : texture(u_result, uv);
+  float a = clamp(t.a, 0.0, 1.0);
+  vec3 straight = a > 0.0 ? t.rgb / a : vec3(0.0);
+
   vec3 col;
   if (before) {
-    col = texture(u_src, uv).rgb; // already sRGB
+    col = straight; // already sRGB
   } else {
     // TPDF dither: sum of two independent uniforms, ±0.5 LSB.
     float d = (rnd(gl_FragCoord.xy + u_seed) + rnd(gl_FragCoord.xy + u_seed + 7.0) - 1.0) / 255.0;
-    col = lin2srgb(texture(u_result, uv).rgb) + d;
+    col = lin2srgb(straight) + d;
+  }
+
+  if (display) {
+    // Transparency checkerboard, same greys as the silhouette tool's preview.
+    vec2 cell = floor(gl_FragCoord.xy / u_checker);
+    vec3 checker = mix(vec3(0.165), vec3(0.267), mod(cell.x + cell.y, 2.0));
+    col = mix(checker, col, a);
+    a = 1.0;
   }
 
   if (u_showSplit > 0.5 && abs(v_uv.x - u_split) < 0.0012) {
     col = vec3(1.0, 0.69, 0.0); // amber divider
+    a = 1.0;
   }
-  o_col = vec4(col, 1.0);
+  o_col = vec4(col, a);
 }`;
