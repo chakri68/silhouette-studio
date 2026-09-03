@@ -1,5 +1,6 @@
 import type { Route } from "../../main";
 import { initDropzone } from "../../ui/dropzone";
+import { controls, formatVal } from "../../ui/controls";
 import { Grapher } from "./gl/graph";
 import {
   transformBitmap,
@@ -837,6 +838,7 @@ function buildPanel(
   params: Params,
   onChange: () => void,
 ): void {
+  const { slider, select, chips } = controls("g");
   panel.innerHTML = `
     <div class="g-group">
       <h2>preset</h2>
@@ -940,62 +942,6 @@ function buildPanel(
 
   syncControls(panel, params);
   syncPresetHighlight(panel, params);
-}
-
-function slider(
-  key: string,
-  label: string,
-  min: number,
-  max: number,
-  step: number,
-  value: number,
-  unit: string,
-): string {
-  return `
-    <div class="g-row">
-      <label for="g-${key}">${label}<span class="g-val">${formatVal(String(value), unit)}</span></label>
-      <input id="g-${key}" type="range" data-key="${key}" data-unit="${unit}" min="${min}" max="${max}" step="${step}" value="${value}" />
-    </div>`;
-}
-
-function select(
-  key: string,
-  label: string,
-  value: string,
-  opts: [string, string][],
-): string {
-  return `
-    <div class="g-row">
-      <label for="g-${key}">${label}</label>
-      <select id="g-${key}" data-key="${key}">
-        ${opts.map(([v, t]) => `<option value="${v}"${v === value ? " selected" : ""}>${t}</option>`).join("")}
-      </select>
-    </div>`;
-}
-
-function chips(
-  key: string,
-  label: string,
-  value: string,
-  opts: [string, string][],
-): string {
-  return `
-    <div class="g-row">
-      <span class="g-chips-label">${label}</span>
-      <div class="g-chips" data-key="${key}" role="group" aria-label="${label}">
-        ${opts.map(([v, t]) => `<button class="chip${v === value ? " on" : ""}" data-val="${v}">${t}</button>`).join("")}
-      </div>
-    </div>`;
-}
-
-function formatVal(v: string, unit: string): string {
-  const n = Number(v);
-  const s = Number.isInteger(n) ? String(n) : n.toFixed(1);
-  return unit === "×"
-    ? `${s}×`
-    : unit
-      ? `${s}${unit === "px" || unit === "%" ? "" : " "}${unit}`
-      : s;
 }
 
 /** Push params back into the controls (after a preset or reset). */

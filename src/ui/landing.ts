@@ -1,9 +1,9 @@
 import type { Route } from "../main";
 
 /**
- * The hub. Two tools, two cards, pick one. Deliberately spare — it's a lobby,
- * not a landing page. Everything the tools promise (on-device, no upload) is
- * stated once here so neither tool has to repeat it.
+ * The hub. A card per tool, pick one. Deliberately spare — it's a lobby, not a
+ * landing page. Everything the tools promise (on-device, no upload) is stated
+ * once here so no tool has to repeat it.
  */
 
 interface ToolCard {
@@ -30,6 +30,14 @@ const TOOLS: ToolCard[] = [
     blurb:
       "Upscale in linear light, then buy the detail back with film-grade blue-noise grain. Runs live on the GPU, exports PNG · JPEG.",
     glyph: "▚",
+  },
+  {
+    route: "halftone",
+    name: "halftone",
+    tagline: "rebuild an image out of comic ink dots",
+    blurb:
+      "A rigid grid of black circles, each sized by the darkness underneath it. Tune the screen, threshold it into comic territory, export PNG at up to 4×.",
+    glyph: "⣿",
   },
 ];
 

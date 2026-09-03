@@ -918,10 +918,11 @@ body.booted .intro-title {
 
 .hub-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 300px));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 300px));
+  justify-content: center;
   gap: 18px;
   width: 100%;
-  max-width: 640px;
+  max-width: 960px;
 }
 
 .hub-card {
@@ -1007,7 +1008,11 @@ body.booted .intro-title {
   }
 }
 
-/* ── Grainery ───────────────────────────────────────────────────────── */
+/* ── Tool chrome ────────────────────────────────────────────────────────
+   Screen-plus-right-panel layout and the controls inside it. The `g-` prefix is
+   historical (grainery got here first) — halftone uses the same primitives, so
+   treat anything from .g-body down to .chip as shared, and keep tool-specific
+   rules in the per-tool sections at the bottom. */
 
 .g-body {
   flex: 1;
@@ -1270,4 +1275,45 @@ body.booted .intro-title {
     border-left: none;
     border-top: 1px solid var(--border);
   }
+}
+
+/* Inline row: label on the left, control on the right. Checkboxes only — a
+   slider needs the full width, a toggle doesn't. */
+.g-row.inline {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.g-row.inline label {
+  flex: 1;
+}
+
+.g-row input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* Rows governed by a toggle that's currently off. Dimmed rather than removed:
+   the settings still exist, and hiding them makes the panel jump. */
+[data-requires].off {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* ── Halftone ───────────────────────────────────────────────────────── */
+
+.h-screen #h-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+  background: var(--bg);
+}
+.h-screen #h-canvas:active {
+  cursor: grabbing;
 }

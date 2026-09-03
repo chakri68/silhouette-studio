@@ -12,7 +12,7 @@ import { mountLanding } from "./ui/landing";
  * context) that we don't want to tear down on every route change.
  */
 
-export type Route = "hub" | "silhouette" | "grainery";
+export type Route = "hub" | "silhouette" | "grainery" | "halftone";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 app.innerHTML = `
@@ -22,19 +22,26 @@ app.innerHTML = `
   <div class="route-screen hidden" id="screen-hub"></div>
   <div class="route-screen hidden" id="screen-silhouette"></div>
   <div class="route-screen hidden" id="screen-grainery"></div>
+  <div class="route-screen hidden" id="screen-halftone"></div>
 `;
 
 const screens: Record<Route, HTMLElement> = {
   hub: document.getElementById("screen-hub")!,
   silhouette: document.getElementById("screen-silhouette")!,
   grainery: document.getElementById("screen-grainery")!,
+  halftone: document.getElementById("screen-halftone")!,
 };
 
-const mounted: Record<Route, boolean> = { hub: false, silhouette: false, grainery: false };
+const mounted: Record<Route, boolean> = {
+  hub: false,
+  silhouette: false,
+  grainery: false,
+  halftone: false,
+};
 
 function parseRoute(): Route {
   const h = location.hash.replace(/^#\/?/, "");
-  return h === "silhouette" || h === "grainery" ? h : "hub";
+  return h === "silhouette" || h === "grainery" || h === "halftone" ? h : "hub";
 }
 
 export function navigate(route: Route): void {
@@ -48,6 +55,8 @@ async function show(route: Route): Promise<void> {
       if (route === "hub") mountLanding(screens.hub, navigate);
       else if (route === "silhouette")
         (await import("./tools/silhouette/index")).mountSilhouette(screens.silhouette, navigate);
+      else if (route === "halftone")
+        (await import("./tools/halftone/index")).mountHalftone(screens.halftone, navigate);
       else (await import("./tools/grainery/index")).mountGrainery(screens.grainery, navigate);
     } catch (err) {
       mounted[route] = false;
@@ -68,6 +77,7 @@ const TITLES: Record<Route, string> = {
   hub: "studio — on-device image tools",
   silhouette: "silhouette — browser image cutout & silhouette tool",
   grainery: "grainery — de-pixelate & grain, in your browser",
+  halftone: "halftone — comic dot renderer, in your browser",
 };
 
 window.addEventListener("hashchange", () => void show(parseRoute()));
