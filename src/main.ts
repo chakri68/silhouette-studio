@@ -74,10 +74,10 @@ async function show(route: Route): Promise<void> {
 }
 
 const TITLES: Record<Route, string> = {
-  hub: "studio — on-device image tools",
-  silhouette: "silhouette — browser image cutout & silhouette tool",
-  grainery: "grainery — de-pixelate & grain, in your browser",
-  halftone: "halftone — comic dot renderer, in your browser",
+  hub: "studio: on-device image tools",
+  silhouette: "silhouette: browser image cutout & silhouette tool",
+  grainery: "grainery: de-pixelate & grain, in your browser",
+  halftone: "halftone: comic dot renderer, in your browser",
 };
 
 window.addEventListener("hashchange", () => void show(parseRoute()));
